@@ -145,7 +145,7 @@ export default function AdminProducts() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Price ($)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Price (₹)</label>
                 <input
                   type="number"
                   step="0.01"
@@ -259,7 +259,7 @@ export default function AdminProducts() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 font-medium text-gray-900">${product.price.toFixed(2)}</td>
+                  <td className="px-6 py-4 font-medium text-gray-900">₹{product.price.toFixed(0)}</td>
                   <td className="px-6 py-4">
                     <span
                       className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useUser } from '@clerk/clerk-react'
-import { getOrdersByUser, getOrders } from '../../utils/api'
+import { getOrdersByUser, getOrders, cancelOrder, syncUser } from '../../utils/api'
 import { Package, CheckCircle, Clock, XCircle, Truck, ShoppingCart } from 'lucide-react'
 import LoadingSpinner from '../../components/LoadingSpinner'
 import PageSkeleton from '../../components/PageSkeleton'
@@ -25,6 +25,7 @@ export default function Orders() {
   const { user } = useUser()
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
+  const [cancellingId, setCancellingId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchOrders()
@@ -35,7 +36,6 @@ export default function Orders() {
       let response
       if (user?.id && user?.primaryEmailAddress?.emailAddress) {
         try {
-          const { syncUser } = await import('../../utils/api')
           const syncRes = await syncUser({
             clerkId: user.id,
             name: user.fullName ?? undefined,
@@ -60,6 +60,33 @@ export default function Orders() {
       setOrders([])
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleCancel = async (orderId: string) => {
+    if (!user?.id || !user?.primaryEmailAddress?.emailAddress) {
+      toast.error('Please sign in')
+      return
+    }
+    setCancellingId(orderId)
+    try {
+      const syncRes = await syncUser({
+        clerkId: user.id,
+        name: user.fullName ?? undefined,
+        email: user.primaryEmailAddress.emailAddress,
+      })
+      const userId = syncRes.data?._id
+      if (!userId) {
+        toast.error('Could not verify your account')
+        return
+      }
+      await cancelOrder(orderId, { userId })
+      toast.success('Order cancelled')
+      await fetchOrders()
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to cancel order')
+    } finally {
+      setCancellingId(null)
     }
   }
 
@@ -153,15 +180,26 @@ export default function Orders() {
                           : 'Product'}{' '}
                         × {item.quantity}
                       </span>
-                      <span>${(item.price * item.quantity).toFixed(2)}</span>
+                      <span>₹{(item.price * item.quantity).toFixed(0)}</span>
                     </div>
                   ))}
                 </div>
-                <div className="flex justify-between items-center border-t border-gray-100 pt-3">
-                  <span className="font-semibold text-gray-900">Total</span>
-                  <span className="text-lg font-bold text-blue-600">
-                    ${(order.totalPrice ?? 0).toFixed(2)}
-                  </span>
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border-t border-gray-100 pt-3">
+                  <div className="flex items-center justify-between sm:justify-start gap-3">
+                    <span className="font-semibold text-gray-900">Total</span>
+                    <span className="text-lg font-bold text-blue-600">
+                      ₹{(order.totalPrice ?? 0).toFixed(0)}
+                    </span>
+                  </div>
+                  {(order.orderStatus === 'pending' || order.orderStatus === 'processing') && (
+                    <button
+                      onClick={() => handleCancel(order._id)}
+                      disabled={cancellingId === order._id}
+                      className="sm:w-auto w-full px-4 py-2 rounded-lg font-semibold border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-60"
+                    >
+                      {cancellingId === order._id ? 'Cancelling…' : 'Cancel Order'}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

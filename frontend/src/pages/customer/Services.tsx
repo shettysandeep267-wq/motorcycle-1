@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react'
-import { useUser } from '@clerk/clerk-react'
-import { getServices, createBooking, syncUser } from '../../utils/api'
+import { createServiceRequest, getServices, syncUser } from '../../utils/api'
 import ServiceCard from '../../components/ServiceCard'
 import ServiceCardSkeleton from '../../components/ServiceCardSkeleton'
-import LoadingSpinner from '../../components/LoadingSpinner'
 import toast from 'react-hot-toast'
 import { CheckCircle, Calendar, X } from 'lucide-react'
+import { useUser } from '@clerk/clerk-react'
 
 interface Service {
   _id: string
@@ -16,21 +15,66 @@ interface Service {
   image?: string
 }
 
+const DUMMY_SERVICES: Service[] = [
+  {
+    _id: 'dummy-1',
+    serviceName: 'Full Bike Service',
+    description:
+      'Complete motorcycle maintenance including oil change, brake inspection, chain lubrication and full safety check.',
+    price: 2500,
+    duration: '2 Hours',
+    image: 'https://images.unsplash.com/photo-1519750157634-b6d493a0f77f?auto=format&fit=crop&w=1200&q=80',
+  },
+  {
+    _id: 'dummy-2',
+    serviceName: 'Engine Repair',
+    description: 'Engine diagnostics, repair and tuning for smoother, more reliable performance.',
+    price: 4500,
+    duration: '4 Hours',
+    image: 'https://images.unsplash.com/photo-1609639643509-4c3c6bcd1c7c?auto=format&fit=crop&w=1200&q=80',
+  },
+  {
+    _id: 'dummy-3',
+    serviceName: 'Brake Inspection',
+    description: 'Detailed inspection of brake pads, discs and fluid for safe stopping power.',
+    price: 800,
+    duration: '30 Minutes',
+    image: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80',
+  },
+  {
+    _id: 'dummy-4',
+    serviceName: 'Oil Change Service',
+    description: 'Quick engine oil and filter change using high-quality motorcycle oil.',
+    price: 600,
+    duration: '20 Minutes',
+    image: 'https://images.unsplash.com/photo-1515923256482-1c04580b477c?auto=format&fit=crop&w=1200&q=80',
+  },
+]
+
 interface BookingConfirmation {
   serviceName: string
   bookingDate: string
   status: string
 }
 
+interface LocalBooking {
+  id: string
+  serviceId: string
+  serviceName: string
+  bookingDate: string
+}
+
 export default function Services() {
   const { user } = useUser()
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
   const [selectedService, setSelectedService] = useState<Service | null>(null)
   const [showBookingForm, setShowBookingForm] = useState(false)
   const [confirmation, setConfirmation] = useState<BookingConfirmation | null>(null)
+  const [bookings, setBookings] = useState<LocalBooking[]>([])
   const [bookingData, setBookingData] = useState({
+    customerName: '',
+    bikeModel: '',
     date: '',
     time: '',
   })
@@ -44,60 +88,14 @@ export default function Services() {
       const response = await getServices()
       const data = (response.data || []) as Service[]
       if (data.length === 0) {
-        setServices([
-          {
-            _id: 'fallback-s1',
-            serviceName: 'Full Bike Service',
-            description:
-              'Complete motorcycle maintenance including oil change, brake inspection, chain lubrication and full safety check.',
-            price: 2500,
-            duration: '2 hours',
-            image:
-              'https://images.unsplash.com/photo-1519750157634-b6d493a0f77f?auto=format&fit=crop&w=900&q=80',
-          },
-          {
-            _id: 'fallback-s2',
-            serviceName: 'Engine Tune & Repair',
-            description: 'Engine diagnostics, tuning and repair for smoother power delivery.',
-            price: 4500,
-            duration: '4 hours',
-            image:
-              'https://images.unsplash.com/photo-1609639643509-4c3c6bcd1c7c?auto=format&fit=crop&w=900&q=80',
-          },
-          {
-            _id: 'fallback-s3',
-            serviceName: 'Brake Service',
-            description: 'Brake pads check, fluid top-up and complete brake system inspection.',
-            price: 1200,
-            duration: '1.5 hours',
-            image:
-              'https://images.unsplash.com/photo-1526498460520-4c246339dccb?auto=format&fit=crop&w=900&q=80',
-          },
-          {
-            _id: 'fallback-s4',
-            serviceName: 'Tire Change & Alignment',
-            description: 'Front or rear tire change with balancing and alignment check.',
-            price: 1500,
-            duration: '1.5 hours',
-            image:
-              'https://images.unsplash.com/photo-1518655048521-f130df041f66?auto=format&fit=crop&w=900&q=80',
-          },
-          {
-            _id: 'fallback-s5',
-            serviceName: 'Express Oil Change',
-            description: 'Quick engine oil and filter replacement with premium oil.',
-            price: 800,
-            duration: '45 minutes',
-            image:
-              'https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?auto=format&fit=crop&w=900&q=80',
-          },
-        ])
+        setServices(DUMMY_SERVICES)
       } else {
         setServices(data)
       }
     } catch (error) {
       console.error('Error fetching services:', error)
-      toast.error('Failed to load services')
+      toast.error('Failed to load services, showing sample services instead')
+      setServices(DUMMY_SERVICES)
     } finally {
       setLoading(false)
     }
@@ -107,59 +105,84 @@ export default function Services() {
     setSelectedService(service)
     setShowBookingForm(true)
     setConfirmation(null)
-    setBookingData({ date: '', time: '' })
+    setBookingData({
+      customerName: user?.fullName ?? '',
+      bikeModel: '',
+      date: '',
+      time: '',
+    })
   }
 
   const handleSubmitBooking = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedService) return
-    setSubmitting(true)
+    if (!bookingData.customerName.trim()) {
+      toast.error('Please enter customer name')
+      return
+    }
+    if (!bookingData.bikeModel.trim()) {
+      toast.error('Please enter bike model')
+      return
+    }
+    if (!bookingData.date) {
+      toast.error('Please select a booking date')
+      return
+    }
+
+    const isoDate = new Date(
+      `${bookingData.date}T${bookingData.time || '10:00'}`
+    ).toISOString()
+
+    const prettyDate = new Date(isoDate).toLocaleString(undefined, {
+      dateStyle: 'full',
+      timeStyle: 'short',
+    })
+
     try {
       const email = user?.primaryEmailAddress?.emailAddress
-      if (!email) {
-        toast.error('Please sign in to book a service')
+      if (!user?.id || !email) {
+        toast.error('Please sign in')
         return
       }
-      let userId: string | null = null
-      try {
-        const syncRes = await syncUser({
-          clerkId: user!.id,
-          name: user!.fullName ?? undefined,
-          email,
-        })
-        userId = syncRes.data?._id
-      } catch {
-        toast.error('Could not verify your account')
-        setSubmitting(false)
-        return
-      }
+
+      const syncRes = await syncUser({
+        clerkId: user.id,
+        name: user.fullName ?? undefined,
+        email,
+      })
+      const userId = syncRes.data?._id
       if (!userId) {
         toast.error('Could not verify your account')
-        setSubmitting(false)
         return
       }
-      const bookingDate = new Date(`${bookingData.date}T${bookingData.time}`).toISOString()
-      await createBooking({
+
+      const created = await createServiceRequest({
         userId,
         serviceId: selectedService._id,
-        bookingDate,
-        status: 'pending',
+        bookingDate: isoDate,
+        customerName: bookingData.customerName.trim(),
+        bikeModel: bookingData.bikeModel.trim(),
+        serviceType: selectedService.serviceName,
+        status: 'Booked',
       })
+
+      const newBooking: LocalBooking = {
+        id: created.data?._id ?? (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`),
+        serviceId: selectedService._id,
+        serviceName: selectedService.serviceName,
+        bookingDate: isoDate,
+      }
+      setBookings((prev) => [newBooking, ...prev])
+
       setConfirmation({
         serviceName: selectedService.serviceName,
-        bookingDate: new Date(bookingDate).toLocaleString(undefined, {
-          dateStyle: 'full',
-          timeStyle: 'short',
-        }),
-        status: 'pending',
+        bookingDate: prettyDate,
+        status: 'Booked',
       })
       setShowBookingForm(false)
       toast.success('Service booked successfully!')
-    } catch (error) {
-      console.error('Error booking service:', error)
-      toast.error('Failed to book service. Please try again.')
-    } finally {
-      setSubmitting(false)
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to book service')
     }
   }
 
@@ -167,8 +190,8 @@ export default function Services() {
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
-        <div className="h-9 bg-gray-200 rounded w-56 animate-pulse mb-6" />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 text-white">
+        <div className="h-9 bg-white/10 rounded w-56 animate-pulse mb-6" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {Array.from({ length: 6 }).map((_, i) => (
             <ServiceCardSkeleton key={i} />
@@ -179,9 +202,11 @@ export default function Services() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
-      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Motorcycle Services</h1>
-      <p className="text-gray-600 mb-6 sm:mb-8 max-w-2xl">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 text-white">
+      <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white mb-2">
+        Motorcycle Services
+      </h1>
+      <p className="text-white/65 mb-6 sm:mb-8 max-w-2xl">
         Book trusted bike repair and maintenance services with transparent pricing and convenient
         online scheduling.
       </p>
@@ -189,26 +214,48 @@ export default function Services() {
       {/* Booking form modal */}
       {showBookingForm && selectedService && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-auto p-6">
+          <div className="bg-[#0a0a0a] border border-white/10 rounded-xl shadow-xl max-w-md w-full mx-auto p-6 text-white">
             <h2 className="text-xl font-bold mb-4">Book {selectedService.serviceName}</h2>
             <form onSubmit={handleSubmitBooking} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <label className="block text-sm font-medium text-white/80 mb-1">Customer Name</label>
                 <input
-                  type="date"
-                  value={bookingData.date}
-                  onChange={(e) => setBookingData((p) => ({ ...p, date: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-blue-500"
+                  type="text"
+                  value={bookingData.customerName}
+                  onChange={(e) => setBookingData((p) => ({ ...p, customerName: e.target.value }))}
+                  className="w-full border border-white/10 bg-white/5 text-white rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-[#ff7a00] focus:border-[#ff7a00] outline-none transition"
+                  placeholder="Enter your name"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
+                <label className="block text-sm font-medium text-white/80 mb-1">Bike Model</label>
+                <input
+                  type="text"
+                  value={bookingData.bikeModel}
+                  onChange={(e) => setBookingData((p) => ({ ...p, bikeModel: e.target.value }))}
+                  className="w-full border border-white/10 bg-white/5 text-white rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-[#ff7a00] focus:border-[#ff7a00] outline-none transition"
+                  placeholder="e.g. Pulsar 150, Splendor, R15"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-white/80 mb-1">Date</label>
+                <input
+                  type="date"
+                  value={bookingData.date}
+                  onChange={(e) => setBookingData((p) => ({ ...p, date: e.target.value }))}
+                  className="w-full border border-white/10 bg-white/5 text-white rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-[#ff7a00] focus:border-[#ff7a00] outline-none transition"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-white/80 mb-1">Time</label>
                 <input
                   type="time"
                   value={bookingData.time}
                   onChange={(e) => setBookingData((p) => ({ ...p, time: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-white/10 bg-white/5 text-white rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-[#ff7a00] focus:border-[#ff7a00] outline-none transition"
                   required
                 />
               </div>
@@ -216,16 +263,14 @@ export default function Services() {
                 <button
                   type="button"
                   onClick={() => setShowBookingForm(false)}
-                  className="flex-1 py-2.5 rounded-lg font-medium border border-gray-200 text-gray-700 hover:bg-gray-50"
+                  className="flex-1 py-2.5 rounded-lg font-medium border border-white/10 text-white/80 hover:bg-white/10 transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
-                  className="flex-1 py-2.5 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 py-2.5 rounded-lg font-semibold bg-[#ff7a00] text-black hover:brightness-110 disabled:opacity-50 flex items-center justify-center gap-2 transition"
                 >
-                  {submitting ? <LoadingSpinner size="sm" /> : null}
                   Book
                 </button>
               </div>
@@ -237,21 +282,21 @@ export default function Services() {
       {/* Confirmation modal */}
       {confirmation && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-auto p-6">
+          <div className="bg-[#0a0a0a] border border-white/10 rounded-xl shadow-xl max-w-md w-full mx-auto p-6 text-white">
             <div className="text-center">
               <div className="mx-auto w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mb-4">
                 <CheckCircle className="w-8 h-8 text-green-600" />
               </div>
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Booking confirmed</h2>
-              <p className="text-gray-600 mb-4">{confirmation.serviceName}</p>
-              <div className="flex items-center justify-center gap-2 text-gray-700 mb-6">
-                <Calendar className="w-5 h-5 text-gray-400" />
+              <h2 className="text-xl font-bold text-white mb-2">Booking confirmed</h2>
+              <p className="text-white/70 mb-4">{confirmation.serviceName}</p>
+              <div className="flex items-center justify-center gap-2 text-white/80 mb-6">
+                <Calendar className="w-5 h-5 text-white/40" />
                 <span>{confirmation.bookingDate}</span>
               </div>
-              <p className="text-sm text-gray-500 mb-6">Status: {confirmation.status}</p>
+              <p className="text-sm text-white/60 mb-6">Status: {confirmation.status}</p>
               <button
                 onClick={closeConfirmation}
-                className="w-full py-2.5 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 flex items-center justify-center gap-2"
+                className="w-full py-2.5 rounded-lg font-semibold bg-[#ff7a00] text-black hover:brightness-110 flex items-center justify-center gap-2 transition"
               >
                 <X className="w-4 h-4" />
                 Close
@@ -273,6 +318,13 @@ export default function Services() {
           />
         ))}
       </div>
+
+      {services.length === 0 && (
+        <div className="text-center py-12 sm:py-16 bg-white/5 rounded-xl shadow-sm border border-white/10 mt-6">
+          <p className="text-white font-semibold mb-1">No services available</p>
+          <p className="text-white/60">Please check back soon for new service slots.</p>
+        </div>
+      )}
     </div>
   )
 }

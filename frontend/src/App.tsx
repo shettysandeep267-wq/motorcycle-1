@@ -7,6 +7,8 @@ import Cart from './pages/customer/Cart'
 import Services from './pages/customer/Services'
 import Orders from './pages/customer/Orders'
 import Dashboard from './pages/customer/Dashboard'
+import Checkout from './pages/customer/Checkout'
+import ServiceBookings from './pages/customer/ServiceBookings'
 import Login from './pages/auth/Login'
 import Signup from './pages/auth/Signup'
 import AdminLogin from './pages/admin/AdminLogin'
@@ -53,6 +55,14 @@ function App() {
             }
           />
           <Route
+            path="checkout"
+            element={
+              <ProtectedRoute>
+                <Checkout />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="services"
             element={
               <ProtectedRoute>
@@ -65,6 +75,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Orders />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="service-bookings"
+            element={
+              <ProtectedRoute>
+                <ServiceBookings />
               </ProtectedRoute>
             }
           />

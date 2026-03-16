@@ -14,11 +14,11 @@ const api = axios.create({
 // and pass it as a header in individual API calls
 api.interceptors.request.use(
   async (config) => {
-    // Example: Add auth token if available
-    // const token = localStorage.getItem('clerk_token')
-    // if (token) {
-    //   config.headers.Authorization = `Bearer ${token}`
-    // }
+    // Admin JWT (for /admin dashboard access)
+    const adminToken = localStorage.getItem('admin_token')
+    if (adminToken) {
+      config.headers.Authorization = `Bearer ${adminToken}`
+    }
     return config
   },
   (error) => {
@@ -61,6 +61,7 @@ export const getOrdersByUser = (userId: string) => api.get(`/orders/user/${userI
 export const getOrder = (id: string) => api.get(`/orders/${id}`)
 export const createOrder = (data: any) => api.post('/orders', data)
 export const updateOrder = (id: string, data: any) => api.put(`/orders/${id}`, data)
+export const cancelOrder = (id: string, data: { userId: string }) => api.post(`/orders/${id}/cancel`, data)
 
 // Services Booking (legacy)
 export const bookService = (data: any) => api.post('/services/book', data)
@@ -80,6 +81,26 @@ export const updateInventory = (id: string, data: any) => api.put(`/inventory/${
 
 // Admin Dashboard
 export const getAdminDashboard = () => api.get('/admin/dashboard')
+
+// Admin auth
+export const adminLogin = (data: { adminId: string; password: string }) =>
+  api.post('/admin/auth/login', data)
+export const adminMe = () => api.get('/admin/auth/me')
+
+// Service requests (admin)
+export const getServiceRequests = () => api.get('/service-requests')
+export const getServiceRequestsByUser = (userId: string) => api.get(`/service-requests/user/${userId}`)
+export const createServiceRequest = (data: {
+  userId: string
+  serviceId: string
+  bookingDate: string
+  customerName: string
+  serviceType: string
+  bikeModel: string
+  status?: string
+}) => api.post('/service-requests', data)
+export const cancelServiceRequest = (id: string, data: { userId: string }) =>
+  api.post(`/service-requests/${id}/cancel`, data)
 
 export default api
 

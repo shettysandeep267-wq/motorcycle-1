@@ -23,7 +23,7 @@ import {
   Cell,
   Legend,
 } from 'recharts'
-import { getAdminDashboard, getOrders } from '../../utils/api'
+import { getAdminDashboard, getOrders, getServiceRequests } from '../../utils/api'
 
 const STATUS_COLORS: Record<string, string> = {
   pending: '#eab308',
@@ -43,6 +43,8 @@ export default function AdminDashboard() {
     totalRevenue: 0,
   })
   const [ordersByStatus, setOrdersByStatus] = useState<{ _id: string; count: number }[]>([])
+  const [recentOrders, setRecentOrders] = useState<any[]>([])
+  const [serviceRequests, setServiceRequests] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -51,9 +53,10 @@ export default function AdminDashboard() {
 
   const fetchDashboard = async () => {
     try {
-      const [dashboardRes, ordersRes] = await Promise.all([
+      const [dashboardRes, ordersRes, requestsRes] = await Promise.all([
         getAdminDashboard(),
         getOrders(),
+        getServiceRequests(),
       ])
       const d = dashboardRes.data
       const totalRevenue = (ordersRes.data || []).reduce(
@@ -69,6 +72,8 @@ export default function AdminDashboard() {
         totalRevenue,
       })
       setOrdersByStatus(Array.isArray(d.ordersByStatus) ? d.ordersByStatus : [])
+      setRecentOrders(Array.isArray(ordersRes.data) ? ordersRes.data.slice(0, 8) : [])
+      setServiceRequests(Array.isArray(requestsRes.data) ? requestsRes.data.slice(0, 8) : [])
     } catch (error) {
       console.error('Error fetching dashboard:', error)
     } finally {
@@ -103,7 +108,7 @@ export default function AdminDashboard() {
     },
     {
       title: 'Revenue',
-      value: `$${stats.totalRevenue.toFixed(2)}`,
+      value: `₹${stats.totalRevenue.toFixed(0)}`,
       icon: DollarSign,
       link: '/admin/orders',
       color: 'bg-violet-500',
@@ -273,6 +278,120 @@ export default function AdminDashboard() {
             <Package className="w-5 h-5 text-violet-600" />
             <span className="font-medium">Manage Inventory</span>
           </Link>
+        </div>
+      </div>
+
+      {/* Orders + Service requests */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Recent Orders</h2>
+              <p className="text-sm text-gray-500">Customer details and order items</p>
+            </div>
+            <Link to="/admin/orders" className="text-sm font-semibold text-blue-600 hover:underline">
+              View all
+            </Link>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-100">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Customer</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Items</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {recentOrders.map((o: any) => (
+                  <tr key={o._id} className="hover:bg-gray-50/50">
+                    <td className="px-6 py-4">
+                      <div className="font-medium text-gray-900">{o.userId?.name ?? 'Guest'}</div>
+                      <div className="text-sm text-gray-500">{o.userId?.email ?? '-'}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="space-y-1 text-sm text-gray-700">
+                        {(o.products || []).slice(0, 2).map((it: any, idx: number) => (
+                          <div key={idx}>
+                            {(typeof it.productId === 'object' && it.productId?.name) ? it.productId.name : 'Product'} × {it.quantity}
+                          </div>
+                        ))}
+                        {(o.products || []).length > 2 ? (
+                          <div className="text-xs text-gray-500">+{(o.products || []).length - 2} more</div>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">
+                        {o.orderStatus ?? 'pending'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      {o.createdAt ? new Date(o.createdAt).toLocaleDateString() : '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {recentOrders.length === 0 ? (
+            <div className="px-6 py-10 text-center text-gray-500">No orders yet.</div>
+          ) : null}
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Service Requests</h2>
+              <p className="text-sm text-gray-500">Booking requests from customers</p>
+            </div>
+            <Link to="/admin/services" className="text-sm font-semibold text-amber-700 hover:underline">
+              Manage
+            </Link>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-100">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Customer</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Service</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Bike model</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Booking date</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {serviceRequests.map((r: any) => (
+                  <tr key={r._id} className="hover:bg-gray-50/50">
+                    <td className="px-6 py-4">
+                      <div className="font-medium text-gray-900">
+                        {r.customerName || r.userId?.name || 'Guest'}
+                      </div>
+                      <div className="text-sm text-gray-500">{r.userId?.email ?? '-'}</div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {r.serviceType || r.serviceId?.serviceName || 'Service'}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {r.bikeModel || '-'}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      {r.bookingDate ? new Date(r.bookingDate).toLocaleString() : '-'}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">
+                        {r.status ?? 'Booked'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {serviceRequests.length === 0 ? (
+            <div className="px-6 py-10 text-center text-gray-500">No service requests yet.</div>
+          ) : null}
         </div>
       </div>
     </div>

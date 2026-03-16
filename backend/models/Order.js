@@ -6,6 +6,17 @@ const orderSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
   },
+  customerName: {
+    type: String,
+    default: '',
+    trim: true,
+  },
+  customerEmail: {
+    type: String,
+    default: '',
+    trim: true,
+    lowercase: true,
+  },
   products: [{
     productId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -26,6 +37,11 @@ const orderSchema = new mongoose.Schema({
     type: Number,
     required: true,
     min: 0,
+  },
+  paymentMethod: {
+    type: String,
+    enum: ['CREDIT_CARD', 'DEBIT_CARD', 'UPI', 'NET_BANKING', 'COD'],
+    default: 'COD',
   },
   orderStatus: {
     type: String,

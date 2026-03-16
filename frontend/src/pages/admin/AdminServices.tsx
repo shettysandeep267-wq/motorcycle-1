@@ -181,7 +181,7 @@ export default function AdminServices() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Price ($)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Price (₹)</label>
                 <input
                   type="number"
                   step="0.01"
@@ -260,7 +260,7 @@ export default function AdminServices() {
                 {services.map((service) => (
                   <tr key={service._id} className="hover:bg-gray-50/50">
                     <td className="px-6 py-4 font-medium text-gray-900">{service.serviceName}</td>
-                    <td className="px-6 py-4">${service.price.toFixed(2)}</td>
+                    <td className="px-6 py-4">₹{service.price.toFixed(0)}</td>
                     <td className="px-6 py-4 text-gray-600">{service.duration} min</td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">

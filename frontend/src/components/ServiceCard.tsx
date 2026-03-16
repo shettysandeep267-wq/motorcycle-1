@@ -25,7 +25,7 @@ export default function ServiceCard({ service, onBook }: ServiceCardProps) {
     'https://images.unsplash.com/photo-1519750157634-b6d493a0f77f?auto=format&fit=crop&w=900&q=80'
 
   return (
-    <div className="group bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden transform transition duration-300 ease-out hover:shadow-2xl hover:-translate-y-1 hover:scale-[1.02] flex flex-col">
+    <div className="group bg-black/40 rounded-xl shadow-lg border border-white/10 overflow-hidden transform transition duration-300 ease-out hover:shadow-2xl hover:-translate-y-1 hover:scale-[1.02] flex flex-col">
       <div className="relative h-44 sm:h-52 bg-gray-100 overflow-hidden">
         <img
           src={service.image || fallbackImage}
@@ -38,24 +38,24 @@ export default function ServiceCard({ service, onBook }: ServiceCardProps) {
           <h3 className="text-white font-semibold text-base sm:text-lg line-clamp-2">
             {service.name}
           </h3>
-          <span className="inline-flex items-center rounded-full bg-white/90 text-blue-700 text-xs font-semibold px-3 py-1 shadow-sm">
+          <span className="inline-flex items-center rounded-full bg-white/90 text-black text-xs font-semibold px-3 py-1 shadow-sm">
             ₹{service.price.toFixed(0)}
           </span>
         </div>
       </div>
 
       <div className="p-4 sm:p-5 flex flex-col flex-1">
-        <p className="text-gray-600 text-sm sm:text-base mb-3 line-clamp-3">
+        <p className="text-white/60 text-sm sm:text-base mb-3 line-clamp-3">
           {service.description}
         </p>
         <div className="mt-auto space-y-3">
-          <div className="inline-flex items-center gap-2 text-xs sm:text-sm text-gray-500 bg-gray-50 px-3 py-1.5 rounded-full w-fit">
-            <Clock className="w-4 h-4 text-blue-500" />
+          <div className="inline-flex items-center gap-2 text-xs sm:text-sm text-white/70 bg-white/10 px-3 py-1.5 rounded-full w-fit">
+            <Clock className="w-4 h-4 text-[#ff7a00]" />
             <span>{durationLabel}</span>
           </div>
           <button
             onClick={handleBook}
-            className="w-full py-2.5 rounded-lg font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow-md transition"
+            className="w-full py-2.5 rounded-lg font-semibold bg-[#ff7a00] text-black hover:brightness-110 shadow-sm hover:shadow-md transition"
           >
             Book Service
           </button>

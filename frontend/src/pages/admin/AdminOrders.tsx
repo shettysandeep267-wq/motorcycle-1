@@ -155,13 +155,13 @@ export default function AdminOrders() {
                           {typeof item.productId === 'object' && item.productId?.name
                             ? item.productId.name
                             : 'Product'}{' '}
-                          × {item.quantity} — ${(item.price * item.quantity).toFixed(2)}
+                          × {item.quantity} — ₹{(item.price * item.quantity).toFixed(0)}
                         </div>
                       ))}
                     </div>
                   </td>
                   <td className="px-6 py-4 font-semibold text-gray-900">
-                    ${order.totalPrice?.toFixed(2) ?? '0.00'}
+                    ₹{order.totalPrice?.toFixed(0) ?? '0'}
                   </td>
                   <td className="px-6 py-4">
                     <span

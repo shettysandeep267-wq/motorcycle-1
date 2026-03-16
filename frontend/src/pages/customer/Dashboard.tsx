@@ -2,23 +2,21 @@ import { useUser } from '@clerk/clerk-react'
 import { Link } from 'react-router-dom'
 import { Package, ShoppingCart, Wrench, Clock } from 'lucide-react'
 import { useState, useEffect } from 'react'
-import { getOrders, getServiceBookings } from '../../utils/api'
+import { getOrdersByUser, getServiceRequestsByUser, syncUser } from '../../utils/api'
 
 interface Order {
   _id: string
-  orderNumber: string
-  total: number
-  status: string
+  totalPrice: number
+  orderStatus: string
   createdAt: string
 }
 
 interface ServiceBooking {
   _id: string
-  service: {
-    name: string
-  }
-  date: string
-  time: string
+  serviceId?: { _id: string; serviceName?: string }
+  serviceType?: string
+  bikeModel?: string
+  bookingDate: string
   status: string
 }
 
@@ -30,20 +28,47 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchDashboardData()
-  }, [])
+  }, [user])
 
   const fetchDashboardData = async () => {
     try {
-      const [ordersRes, servicesRes] = await Promise.all([
-        getOrders(),
-        getServiceBookings(),
+      const email = user?.primaryEmailAddress?.emailAddress
+      if (!user?.id || !email) {
+        setRecentOrders([])
+        setUpcomingServices([])
+        return
+      }
+
+      // ensure we have a Mongo User record and use its _id for filtering
+      const syncRes = await syncUser({
+        clerkId: user.id,
+        name: user.fullName ?? undefined,
+        email,
+      })
+      const userId = syncRes.data?._id
+      if (!userId) {
+        setRecentOrders([])
+        setUpcomingServices([])
+        return
+      }
+
+      const [ordersRes, bookingsRes] = await Promise.all([
+        getOrdersByUser(userId),
+        getServiceRequestsByUser(userId),
       ])
-      
-      // Filter orders for current user (in real app, backend should filter)
-      setRecentOrders(ordersRes.data.slice(0, 5))
-      setUpcomingServices(servicesRes.data.filter((s: ServiceBooking) => 
-        s.status === 'pending' || s.status === 'in-progress'
-      ).slice(0, 3))
+
+      const orders = (ordersRes.data || []) as Order[]
+      const bookings = (bookingsRes.data || []) as ServiceBooking[]
+
+      setRecentOrders(orders.slice(0, 5))
+      setUpcomingServices(
+        bookings
+          .filter((b) => {
+            const s = (b.status || '').toLowerCase()
+            return s === 'booked' || s === 'pending' || s === 'in-progress'
+          })
+          .slice(0, 3)
+      )
     } catch (error) {
       console.error('Error fetching dashboard data:', error)
     } finally {
@@ -65,94 +90,98 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 text-white">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">
+        <h1 className="text-3xl font-bold text-white">
           Welcome back, {user?.firstName || user?.emailAddresses[0]?.emailAddress}!
         </h1>
-        <p className="mt-2 text-gray-600">Here's an overview of your account</p>
+        <p className="mt-2 text-white/65">Here's an overview of your account</p>
       </div>
 
       {/* Quick Actions */}
       <div className="grid md:grid-cols-4 gap-6 mb-8">
         <Link
           to="/products"
-          className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition"
+          className="bg-black/40 border border-white/10 rounded-xl shadow-lg p-6 hover:shadow-2xl hover:-translate-y-1 transition"
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-600 text-sm mb-1">Browse</p>
-              <p className="text-xl font-semibold">Products</p>
+              <p className="text-white/60 text-sm mb-1">Browse</p>
+              <p className="text-xl font-semibold text-white">Products</p>
             </div>
-            <Package className="w-8 h-8 text-blue-600" />
+            <Package className="w-8 h-8 text-[#ff7a00]" />
           </div>
         </Link>
         <Link
           to="/cart"
-          className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition"
+          className="bg-black/40 border border-white/10 rounded-xl shadow-lg p-6 hover:shadow-2xl hover:-translate-y-1 transition"
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-600 text-sm mb-1">View</p>
-              <p className="text-xl font-semibold">Cart</p>
+              <p className="text-white/60 text-sm mb-1">View</p>
+              <p className="text-xl font-semibold text-white">Cart</p>
             </div>
-            <ShoppingCart className="w-8 h-8 text-blue-600" />
+            <ShoppingCart className="w-8 h-8 text-[#ff7a00]" />
           </div>
         </Link>
         <Link
           to="/services"
-          className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition"
+          className="bg-black/40 border border-white/10 rounded-xl shadow-lg p-6 hover:shadow-2xl hover:-translate-y-1 transition"
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-600 text-sm mb-1">Book</p>
-              <p className="text-xl font-semibold">Service</p>
+              <p className="text-white/60 text-sm mb-1">Book</p>
+              <p className="text-xl font-semibold text-white">Service</p>
             </div>
-            <Wrench className="w-8 h-8 text-blue-600" />
+            <Wrench className="w-8 h-8 text-[#ff7a00]" />
           </div>
         </Link>
         <Link
           to="/orders"
-          className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition"
+          className="bg-black/40 border border-white/10 rounded-xl shadow-lg p-6 hover:shadow-2xl hover:-translate-y-1 transition"
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-600 text-sm mb-1">Track</p>
-              <p className="text-xl font-semibold">Orders</p>
+              <p className="text-white/60 text-sm mb-1">Track</p>
+              <p className="text-xl font-semibold text-white">Orders</p>
             </div>
-            <Clock className="w-8 h-8 text-blue-600" />
+            <Clock className="w-8 h-8 text-[#ff7a00]" />
           </div>
         </Link>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Recent Orders */}
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-black/40 border border-white/10 rounded-xl shadow-lg p-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Recent Orders</h2>
-            <Link to="/orders" className="text-blue-600 hover:underline text-sm">
+            <h2 className="text-xl font-semibold text-white">Recent Orders</h2>
+            <Link to="/orders" className="text-[#ff7a00] hover:opacity-90 text-sm font-semibold">
               View All
             </Link>
           </div>
           {loading ? (
-            <p className="text-gray-600">Loading...</p>
+            <p className="text-white/60">Loading...</p>
           ) : recentOrders.length === 0 ? (
-            <p className="text-gray-600">No orders yet</p>
+            <p className="text-white/60">No orders yet</p>
           ) : (
             <div className="space-y-3">
               {recentOrders.map((order) => (
-                <div key={order._id} className="border-b pb-3 last:border-0">
+                <div key={order._id} className="border-b border-white/10 pb-3 last:border-0">
                   <div className="flex justify-between items-center">
                     <div>
-                      <p className="font-medium">Order #{order.orderNumber}</p>
-                      <p className="text-sm text-gray-600">
+                      <p className="font-medium text-white">
+                        Order #{order._id.slice(-8).toUpperCase()}
+                      </p>
+                      <p className="text-sm text-white/60">
                         {new Date(order.createdAt).toLocaleDateString()}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold">${order.total.toFixed(2)}</p>
-                      <span className={`text-xs px-2 py-1 rounded ${getStatusColor(order.status)}`}>
-                        {order.status}
+                      <p className="font-semibold text-white">₹{(order.totalPrice ?? 0).toFixed(0)}</p>
+                      <span
+                        className={`text-xs px-2 py-1 rounded ${getStatusColor(order.orderStatus)}`}
+                      >
+                        {order.orderStatus}
                       </span>
                     </div>
                   </div>
@@ -163,26 +192,39 @@ export default function Dashboard() {
         </div>
 
         {/* Upcoming Services */}
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-black/40 border border-white/10 rounded-xl shadow-lg p-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Upcoming Services</h2>
-            <Link to="/services" className="text-blue-600 hover:underline text-sm">
-              Book More
-            </Link>
+            <h2 className="text-xl font-semibold text-white">Upcoming Services</h2>
+            <div className="flex items-center gap-4">
+              <Link to="/service-bookings" className="text-white/70 hover:text-white text-sm font-semibold">
+                View All
+              </Link>
+              <Link to="/services" className="text-[#ff7a00] hover:opacity-90 text-sm font-semibold">
+                Book More
+              </Link>
+            </div>
           </div>
           {loading ? (
-            <p className="text-gray-600">Loading...</p>
+            <p className="text-white/60">Loading...</p>
           ) : upcomingServices.length === 0 ? (
-            <p className="text-gray-600">No upcoming services</p>
+            <p className="text-white/60">No upcoming services</p>
           ) : (
             <div className="space-y-3">
               {upcomingServices.map((booking) => (
-                <div key={booking._id} className="border-b pb-3 last:border-0">
+                <div key={booking._id} className="border-b border-white/10 pb-3 last:border-0">
                   <div className="flex justify-between items-center">
                     <div>
-                      <p className="font-medium">{booking.service.name}</p>
-                      <p className="text-sm text-gray-600">
-                        {new Date(booking.date).toLocaleDateString()} at {booking.time}
+                      <p className="font-medium text-white">
+                        {booking.serviceType ?? booking.serviceId?.serviceName ?? 'Service'}
+                      </p>
+                      {booking.bikeModel ? (
+                        <p className="text-sm text-white/60">Bike: {booking.bikeModel}</p>
+                      ) : null}
+                      <p className="text-sm text-white/60">
+                        {new Date(booking.bookingDate).toLocaleString(undefined, {
+                          dateStyle: 'medium',
+                          timeStyle: 'short',
+                        })}
                       </p>
                     </div>
                     <span className={`text-xs px-2 py-1 rounded ${getStatusColor(booking.status)}`}>

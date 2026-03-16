@@ -4,6 +4,7 @@ import { getProduct } from '../../utils/api'
 import { ShoppingCart } from 'lucide-react'
 import toast from 'react-hot-toast'
 import LoadingSpinner from '../../components/LoadingSpinner'
+import { useCart } from '../../context/CartContext'
 
 interface Product {
   _id: string
@@ -22,6 +23,7 @@ export default function ProductDetail() {
   const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
   const [quantity, setQuantity] = useState(1)
+   const { addToCart } = useCart()
 
   useEffect(() => {
     if (id) {
@@ -41,7 +43,17 @@ export default function ProductDetail() {
   }
 
   const handleAddToCart = () => {
-    if (product) toast.success(`${product.name} added to cart`)
+    if (!product) return
+    addToCart(
+      {
+        id: product._id,
+        name: product.name,
+        price: product.price,
+        image: product.image,
+      },
+      quantity
+    )
+    toast.success(`${product.name} added to cart`)
   }
 
   if (loading) {
@@ -87,7 +99,7 @@ export default function ProductDetail() {
           <p className="text-gray-600 mb-4">{product.description}</p>
           
           <div className="mb-4">
-            <span className="text-3xl font-bold text-blue-600">${product.price}</span>
+            <span className="text-3xl font-bold text-blue-600">₹{product.price}</span>
           </div>
 
           <div className="mb-4">

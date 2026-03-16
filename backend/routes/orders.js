@@ -6,15 +6,20 @@ import {
   createOrder,
   updateOrder,
   deleteOrder,
+  cancelOrder,
 } from '../controllers/orderController.js'
+import { requireAdminAuth } from '../middleware/adminAuth.js'
 
 const router = express.Router()
 
-router.get('/', getOrders)
+// Admin-only: all orders
+router.get('/', requireAdminAuth, getOrders)
 router.get('/user/:id', getOrdersByUserId)
 router.get('/:id', getOrderById)
 router.post('/', createOrder)
-router.put('/:id', updateOrder)
-router.delete('/:id', deleteOrder)
+// Customer cancel (requires userId in body)
+router.post('/:id/cancel', cancelOrder)
+router.put('/:id', requireAdminAuth, updateOrder)
+router.delete('/:id', requireAdminAuth, deleteOrder)
 
 export default router
