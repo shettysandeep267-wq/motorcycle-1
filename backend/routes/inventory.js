@@ -4,7 +4,6 @@ import Product from '../models/Product.js'
 
 const router = express.Router()
 
-// Get all inventory items
 router.get('/', async (req, res) => {
   try {
     const inventory = await Inventory.find().populate('product')
@@ -14,7 +13,6 @@ router.get('/', async (req, res) => {
   }
 })
 
-// Get single inventory item
 router.get('/:id', async (req, res) => {
   try {
     const inventory = await Inventory.findById(req.params.id).populate('product')
@@ -27,48 +25,48 @@ router.get('/:id', async (req, res) => {
   }
 })
 
-// Update inventory
 router.put('/:id', async (req, res) => {
   try {
-    const inventory = await Inventory.findByIdAndUpdate(
-      req.params.id,
-      {
-        ...req.body,
-        lastUpdated: new Date(),
-      },
-      { new: true, runValidators: true }
-    )
+    const { quantity, location } = req.body || {}
+    const patch = {}
+    if (quantity !== undefined) patch.quantity = quantity
+    if (location !== undefined) patch.location = location
+
+    const inventory = await Inventory.findByIdAndUpdate(req.params.id, patch, {
+      new: true,
+      runValidators: true,
+    })
     if (!inventory) {
       return res.status(404).json({ message: 'Inventory item not found' })
     }
-    
-    // Also update product stock
+
     await Product.findByIdAndUpdate(inventory.product, {
-      stock: inventory.stock,
+      stock: inventory.quantity,
     })
-    
+
     res.json(inventory)
   } catch (error) {
     res.status(400).json({ message: error.message })
   }
 })
 
-// Initialize inventory for a product
 router.post('/initialize', async (req, res) => {
   try {
-    const { productId, stock, lowStockThreshold } = req.body
-    
+    const { productId, quantity, location, stock, lowStockThreshold: _ignored } = req.body || {}
+    const qty = quantity != null ? Number(quantity) : stock != null ? Number(stock) : 0
+
     const inventory = await Inventory.findOneAndUpdate(
       { product: productId },
       {
         product: productId,
-        stock: stock || 0,
-        lowStockThreshold: lowStockThreshold || 10,
-        lastUpdated: new Date(),
+        quantity: qty,
+        location: location || '',
       },
-      { new: true, upsert: true }
+      { new: true, upsert: true, runValidators: true }
     )
-    
+
+    await Product.findByIdAndUpdate(productId, { stock: inventory.quantity })
+
     res.status(201).json(inventory)
   } catch (error) {
     res.status(400).json({ message: error.message })
@@ -76,6 +74,3 @@ router.post('/initialize', async (req, res) => {
 })
 
 export default router
-
-
-

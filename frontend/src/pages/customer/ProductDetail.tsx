@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { getProduct } from '../../utils/api'
 import { ShoppingCart } from 'lucide-react'
 import toast from 'react-hot-toast'
-import LoadingSpinner from '../../components/LoadingSpinner'
 import { useCart } from '../../context/CartContext'
+import { useCatalogStore } from '../../stores/catalogStore'
 
 interface Product {
   _id: string
@@ -20,27 +19,14 @@ interface Product {
 export default function ProductDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const [product, setProduct] = useState<Product | null>(null)
-  const [loading, setLoading] = useState(true)
+  const product = useCatalogStore(
+    useCallback(
+      (state) => (id ? state.products.find((p) => p._id === id) ?? null : null),
+      [id]
+    )
+  ) as Product | null
   const [quantity, setQuantity] = useState(1)
-   const { addToCart } = useCart()
-
-  useEffect(() => {
-    if (id) {
-      fetchProduct()
-    }
-  }, [id])
-
-  const fetchProduct = async () => {
-    try {
-      const response = await getProduct(id!)
-      setProduct(response.data)
-    } catch (error) {
-      console.error('Error fetching product:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const { addToCart } = useCart()
 
   const handleAddToCart = () => {
     if (!product) return
@@ -54,14 +40,6 @@ export default function ProductDetail() {
       quantity
     )
     toast.success(`${product.name} added to cart`)
-  }
-
-  if (loading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex justify-center items-center min-h-[300px]">
-        <LoadingSpinner size="lg" />
-      </div>
-    )
   }
 
   if (!product) {
@@ -86,7 +64,17 @@ export default function ProductDetail() {
         <div className="bg-white rounded-lg shadow-md p-4">
           <div className="h-96 bg-gray-200 flex items-center justify-center rounded">
             {product.image ? (
-              <img src={product.image} alt={product.name} className="h-full w-full object-cover rounded" />
+              <img
+                src={product.image}
+                alt={product.name}
+                className="h-full w-full object-cover rounded"
+                loading="lazy"
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  e.currentTarget.src =
+                    "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='1200'%20height='800'%20viewBox='0%200%201200%20800'%3E%3Cdefs%3E%3ClinearGradient%20id='g'%20x1='0'%20y1='0'%20x2='1'%20y2='1'%3E%3Cstop%20offset='0'%20stop-color='%23f3f4f6'/%3E%3Cstop%20offset='1'%20stop-color='%23e5e7eb'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width='1200'%20height='800'%20fill='url(%23g)'/%3E%3Ctext%20x='50%25'%20y='50%25'%20dominant-baseline='middle'%20text-anchor='middle'%20font-family='Arial'%20font-size='34'%20fill='%236b7280'%3EImage%20unavailable%3C/text%3E%3C/svg%3E"
+                }}
+              />
             ) : (
               <span className="text-gray-400">No Image Available</span>
             )}

@@ -1,110 +1,123 @@
-import mongoose from "mongoose";
-import dotenv from "dotenv";
-import connectDB from "./config/db.js";
-import Product from "./models/Product.js";
-import Service from "./models/Service.js";
-console.log("Seed script started...");
+import mongoose from 'mongoose'
+import dotenv from 'dotenv'
+import connectDB from './config/db.js'
+import Product from './models/Product.js'
+import Service from './models/Service.js'
 
-dotenv.config();
+console.log('Seed script started...')
+
+dotenv.config()
 
 const seedData = async () => {
   try {
-    await connectDB();
+    await connectDB()
 
     const products = [
       {
-        name: "Brake Pad",
-        description: "High quality brake pad for motorcycles",
+        name: 'Brake Pad',
+        slug: 'brake-pad',
+        description: 'High quality brake pad for motorcycles',
         price: 1200,
-        category: "Brakes",
-        image: "https://images.unsplash.com/photo-1613215264649-7fcd45d5d7ca",
+        category: 'brake',
+        brand: 'RidePro',
+        images: ['/images/brake-pad.jpg'],
         stock: 20,
+        isFeatured: true,
       },
       {
-        name: "Engine Oil",
-        description: "Premium engine oil for motorcycles",
+        name: 'Engine Oil',
+        slug: 'engine-oil',
+        description: 'Premium engine oil for motorcycles',
         price: 900,
-        category: "Oil",
-        image: "https://images.unsplash.com/photo-1605559424843-9e4c228bf1c2",
+        category: 'oil',
+        brand: 'LubeMax',
+        images: ['/images/engine-oil.jpg'],
         stock: 50,
+        isFeatured: true,
       },
       {
-        name: "Motorcycle Chain",
-        description: "Durable motorcycle drive chain",
+        name: 'Motorcycle Chain',
+        slug: 'motorcycle-chain',
+        description: 'Durable motorcycle drive chain',
         price: 1800,
-        category: "Engine",
-        image: "https://images.unsplash.com/photo-1558981806-ec527fa84c39",
+        category: 'chain',
+        brand: 'TorqueLine',
+        images: ['/images/chain.jpg'],
         stock: 15,
       },
       {
-        name: "Front Tire",
-        description: "All-weather front tire for motorcycles",
+        name: 'Front Tire',
+        slug: 'front-tire',
+        description: 'All-weather front tire for motorcycles',
         price: 3200,
-        category: "Body",
-        image: "https://images.unsplash.com/photo-1518655048521-f130df041f66",
+        category: 'tire',
+        brand: 'GripTrail',
+        images: ['/images/tire.jpg'],
         stock: 10,
       },
       {
-        name: "LED Headlight",
-        description: "Bright LED headlight for night riding",
+        name: 'LED Headlight',
+        slug: 'led-headlight',
+        description: 'Bright LED headlight for night riding',
         price: 2100,
-        category: "Accessories",
-        image: "https://images.unsplash.com/photo-1542365887-3d1c8c3b45d8",
+        category: 'accessory',
+        brand: 'BeamTech',
+        images: ['/images/headlight.jpg'],
         stock: 25,
+        isFeatured: true,
       },
-    ];
+    ]
 
     const services = [
       {
-        serviceName: "Full Bike Service",
-        description: "Complete motorcycle maintenance",
+        name: 'Full Bike Service',
+        description: 'Complete motorcycle maintenance',
         price: 2500,
-        duration: "2 hours",
-        image: "https://images.unsplash.com/photo-1519750157634-b6d493a0f77f",
+        duration: '2 hours',
+        category: 'Maintenance',
+        image: '/images/bike-service.jpg',
+        isPopular: true,
       },
       {
-        serviceName: "Engine Repair",
-        description: "Engine repair and tuning",
+        name: 'Engine Repair',
+        description: 'Engine repair and tuning',
         price: 4500,
-        duration: "4 hours",
-        image: "https://images.unsplash.com/photo-1609639643509-4c3c6bcd1c7c",
+        duration: '4 hours',
+        category: 'Engine',
+        image: '/images/engine-repair.jpg',
+        isPopular: true,
       },
       {
-        serviceName: "Oil Change",
-        description: "Engine oil replacement",
+        name: 'Oil Change',
+        description: 'Engine oil replacement',
         price: 800,
-        duration: "45 minutes",
-        image: "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3",
+        duration: '45 minutes',
+        category: 'Maintenance',
+        image: '/images/oil-change.jpg',
       },
       {
-        serviceName: "Brake Inspection",
-        description: "Complete brake system inspection",
+        name: 'Brake Inspection',
+        description: 'Complete brake system inspection',
         price: 600,
-        duration: "1 hour",
-        image: "https://images.unsplash.com/photo-1526498460520-4c246339dccb",
+        duration: '1 hour',
+        category: 'Brakes',
+        image: '/images/brake-inspection.jpg',
       },
-      {
-        serviceName: "Tire Replacement",
-        description: "Tire replacement and balancing",
-        price: 1500,
-        duration: "1.5 hours",
-        image: "https://images.unsplash.com/photo-1518655048521-f130df041f66",
-      },
-    ];
+    ]
 
-    await Product.deleteMany({});
-    await Service.deleteMany({});
+    await Product.deleteMany({})
+    await Service.deleteMany({})
 
-    await Product.insertMany(products);
-    await Service.insertMany(services);
+    await Product.insertMany(products)
+    await Service.insertMany(services)
 
-    console.log("Products and Services inserted successfully");
+    console.log('Products and Services inserted successfully')
   } catch (error) {
-    console.error("Seeding error:", error);
+    console.error('Seeding error:', error)
   } finally {
-    await mongoose.connection.close();
-    process.exit(0);
+    await mongoose.connection.close()
+    process.exit(0)
   }
-};
+}
 
-seedData();
+seedData()

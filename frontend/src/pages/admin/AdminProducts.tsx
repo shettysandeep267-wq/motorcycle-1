@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react'
-import { getProducts, createProduct, updateProduct, deleteProduct } from '../../utils/api'
+import { useState } from 'react'
+import { createProduct, updateProduct, deleteProduct } from '../../utils/api'
 import { Plus, Edit, Trash2, Package } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { PRODUCT_CATEGORY_ORDER } from '../../data/products'
+import { useCatalogStore } from '../../stores/catalogStore'
 
 interface Product {
   _id: string
@@ -14,33 +16,23 @@ interface Product {
 }
 
 export default function AdminProducts() {
-  const [products, setProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
+  const products = useCatalogStore((s) => s.products) as Product[]
   const [showForm, setShowForm] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+
+  const normalizeCategory = (c?: string) => {
+    const valid = new Set(PRODUCT_CATEGORY_ORDER as readonly string[])
+    return c && valid.has(c) ? c : 'Accessories'
+  }
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     price: '',
     stock: '',
     image: '',
-    category: 'general',
+    category: normalizeCategory(undefined),
   })
-
-  useEffect(() => {
-    fetchProducts()
-  }, [])
-
-  const fetchProducts = async () => {
-    try {
-      const response = await getProducts()
-      setProducts(response.data)
-    } catch (error) {
-      console.error('Error fetching products:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -51,14 +43,13 @@ export default function AdminProducts() {
         price: parseFloat(formData.price),
         stock: parseInt(formData.stock, 10),
         image: formData.image || '',
-        category: formData.category || 'general',
+        category: normalizeCategory(formData.category),
       }
       if (editingProduct) {
         await updateProduct(editingProduct._id, productData)
       } else {
         await createProduct(productData)
       }
-      fetchProducts()
       resetForm()
       toast.success(editingProduct ? 'Product updated' : 'Product created')
     } catch (error) {
@@ -75,7 +66,7 @@ export default function AdminProducts() {
       price: product.price.toString(),
       stock: product.stock.toString(),
       image: product.image || '',
-      category: product.category || 'general',
+        category: normalizeCategory(product.category),
     })
     setShowForm(true)
   }
@@ -84,7 +75,6 @@ export default function AdminProducts() {
     if (!confirm('Are you sure you want to delete this product?')) return
     try {
       await deleteProduct(id)
-      fetchProducts()
       toast.success('Product deleted')
     } catch (error) {
       console.error('Error deleting product:', error)
@@ -93,17 +83,16 @@ export default function AdminProducts() {
   }
 
   const resetForm = () => {
-    setFormData({ name: '', description: '', price: '', stock: '', image: '', category: 'general' })
+    setFormData({
+      name: '',
+      description: '',
+      price: '',
+      stock: '',
+      image: '',
+      category: normalizeCategory(undefined),
+    })
     setEditingProduct(null)
     setShowForm(false)
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
-      </div>
-    )
   }
 
   return (
@@ -174,10 +163,11 @@ export default function AdminProducts() {
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="general">General</option>
-                  <option value="engine">Engine</option>
-                  <option value="body">Body</option>
-                  <option value="accessories">Accessories</option>
+                  {PRODUCT_CATEGORY_ORDER.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>

@@ -1,4 +1,4 @@
-import { ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { SignedIn, SignedOut, RedirectToSignIn } from '@clerk/clerk-react'
 
 interface ProtectedRouteProps {

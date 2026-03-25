@@ -1,6 +1,12 @@
 import SectionHeading from './SectionHeading'
 
-const PLANS = [
+const PLANS: {
+  name: string
+  price: string
+  unit: string
+  highlight?: boolean
+  items: string[]
+}[] = [
   {
     name: 'Hourly',
     price: '₹199',
@@ -20,7 +26,7 @@ const PLANS = [
     unit: '/week',
     items: ['Perfect for long stays', 'Maintenance included', 'Save 25%+'],
   },
-] as const
+]
 
 export default function Pricing() {
   return (

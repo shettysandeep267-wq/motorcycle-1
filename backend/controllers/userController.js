@@ -71,7 +71,7 @@ export const syncUserByClerk = async (req, res) => {
         clerkId,
         name: name || email.split('@')[0],
         email,
-        role: 'user',
+        role: 'customer',
       })
     }
     res.json(user)

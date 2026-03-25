@@ -10,6 +10,8 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.4.27",
     "postcss": "^8.5.8",
     "tailwindcss": "^4.2.1",
@@ -18,13 +20,13 @@
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.61.3",
-    "@clerk/react": "^6.1.0",
-    "axios": "^1.13.6",
+    "framer-motion": "^12.38.0",
     "lucide-react": "^0.577.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-hot-toast": "^2.6.0",
     "react-router-dom": "^7.13.1",
-    "recharts": "^3.8.0"
+    "recharts": "^3.8.0",
+    "zustand": "^5.0.12"
   }
 }

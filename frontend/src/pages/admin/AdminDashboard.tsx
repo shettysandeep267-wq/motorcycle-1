@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import {
   Package,
@@ -24,6 +25,8 @@ import {
   Legend,
 } from 'recharts'
 import { getAdminDashboard, getOrders, getServiceRequests } from '../../utils/api'
+import type { StoreUpdateKind } from '../../data/store'
+import { useCatalogStore } from '../../stores/catalogStore'
 
 const STATUS_COLORS: Record<string, string> = {
   pending: '#eab308',
@@ -34,10 +37,10 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 export default function AdminDashboard() {
+  const catalogProductCount = useCatalogStore((s) => s.products.length)
+  const catalogServiceCount = useCatalogStore((s) => s.services.length)
   const [stats, setStats] = useState({
-    products: 0,
     orders: 0,
-    services: 0,
     users: 0,
     bookings: 0,
     totalRevenue: 0,
@@ -47,11 +50,7 @@ export default function AdminDashboard() {
   const [serviceRequests, setServiceRequests] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchDashboard()
-  }, [])
-
-  const fetchDashboard = async () => {
+  const fetchDashboard = useCallback(async () => {
     try {
       const [dashboardRes, ordersRes, requestsRes] = await Promise.all([
         getAdminDashboard(),
@@ -64,9 +63,7 @@ export default function AdminDashboard() {
         0
       )
       setStats({
-        products: d.products ?? 0,
         orders: d.orders ?? 0,
-        services: d.services ?? 0,
         users: d.users ?? 0,
         bookings: d.bookings ?? 0,
         totalRevenue,
@@ -79,7 +76,23 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    void fetchDashboard()
+  }, [fetchDashboard])
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<{ kind?: StoreUpdateKind }>
+      const kind = ce.detail?.kind
+      if (kind === 'orders' || kind === 'serviceRequests') {
+        void fetchDashboard()
+      }
+    }
+    window.addEventListener('motorcycle_store_update', handler)
+    return () => window.removeEventListener('motorcycle_store_update', handler)
+  }, [fetchDashboard])
 
   const chartData = ordersByStatus.map((item) => ({
     name: item._id.charAt(0).toUpperCase() + item._id.slice(1),
@@ -90,7 +103,7 @@ export default function AdminDashboard() {
   const statCards = [
     {
       title: 'Products',
-      value: stats.products,
+      value: catalogProductCount,
       icon: Package,
       link: '/admin/products',
       color: 'bg-blue-500',
@@ -117,7 +130,7 @@ export default function AdminDashboard() {
     },
     {
       title: 'Services',
-      value: stats.services,
+      value: catalogServiceCount,
       icon: Wrench,
       link: '/admin/services',
       color: 'bg-amber-500',
@@ -154,37 +167,52 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500 mt-1">Overview of your motorcycle shop</p>
-      </div>
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange-600/90">Command center</p>
+        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-gray-900 mt-1">
+          Dashboard
+        </h1>
+        <p className="text-gray-500 mt-1 max-w-xl">Overview of your motorcycle shop—live metrics at a glance.</p>
+      </motion.div>
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        {statCards.map((stat) => {
+        {statCards.map((stat, i) => {
           const Icon = stat.icon
           return (
-            <Link
+            <motion.div
               key={stat.title}
-              to={stat.link}
-              className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-gray-200 transition-all group"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.04, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
             >
-              <div className="flex items-start justify-between">
-                <div className={`p-2.5 rounded-lg ${stat.light}`}>
-                  <Icon className={`w-6 h-6 ${stat.text}`} />
+              <Link
+                to={stat.link}
+                className="block h-full rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white via-white to-slate-50/90 p-5 shadow-[0_12px_40px_-16px_rgba(15,23,42,0.12)] hover:shadow-[0_20px_50px_-16px_rgba(249,115,22,0.15)] hover:border-orange-200/60 transition-all duration-300 group"
+              >
+                <div className="flex items-start justify-between">
+                  <div
+                    className={`p-2.5 rounded-xl ${stat.light} ring-1 ring-black/[0.04] shadow-sm`}
+                  >
+                    <Icon className={`w-6 h-6 ${stat.text}`} />
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-orange-500 group-hover:translate-x-0.5 transition" />
                 </div>
-                <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 group-hover:translate-x-0.5 transition" />
-              </div>
-              <p className="text-2xl font-bold text-gray-900 mt-3">{stat.value}</p>
-              <p className="text-sm text-gray-500 mt-0.5">{stat.title}</p>
-            </Link>
+                <p className="text-2xl font-extrabold text-gray-900 mt-3 tabular-nums">{stat.value}</p>
+                <p className="text-sm font-medium text-gray-500 mt-0.5">{stat.title}</p>
+              </Link>
+            </motion.div>
           )
         })}
       </div>
 
       {/* Charts row */}
       <div className="grid lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-[0_16px_48px_-20px_rgba(15,23,42,0.12)] border border-slate-200/80 p-6 ring-1 ring-white/60">
           <div className="flex items-center gap-2 mb-6">
             <TrendingUp className="w-5 h-5 text-blue-600" />
             <h2 className="text-lg font-semibold text-gray-900">Orders by Status</h2>
@@ -197,7 +225,7 @@ export default function AdminDashboard() {
                 <YAxis tick={{ fontSize: 12 }} stroke="#64748b" />
                 <Tooltip
                   contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
-                  formatter={(value: number) => [value, 'Orders']}
+                  formatter={(value) => [value ?? 0, 'Orders']}
                 />
                 <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                   {chartData.map((entry, index) => (
@@ -213,7 +241,7 @@ export default function AdminDashboard() {
           )}
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-[0_16px_48px_-20px_rgba(15,23,42,0.12)] border border-slate-200/80 p-6 ring-1 ring-white/60">
           <h2 className="text-lg font-semibold text-gray-900 mb-6">Order Status Distribution</h2>
           {chartData.length > 0 ? (
             <ResponsiveContainer width="100%" height={280}>
@@ -225,7 +253,10 @@ export default function AdminDashboard() {
                   cx="50%"
                   cy="50%"
                   outerRadius={90}
-                  label={({ name, count }) => `${name}: ${count}`}
+                  label={(props) => {
+                    const p = props as { name?: string; payload?: { count?: number } }
+                    return `${p.name ?? ''}: ${p.payload?.count ?? 0}`
+                  }}
                 >
                   {chartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.fill} />
@@ -233,7 +264,7 @@ export default function AdminDashboard() {
                 </Pie>
                 <Tooltip
                   contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
-                  formatter={(value: number, name: string) => [value, name]}
+                  formatter={(value, name) => [value ?? 0, name ?? '']}
                 />
                 <Legend />
               </PieChart>
@@ -247,43 +278,43 @@ export default function AdminDashboard() {
       </div>
 
       {/* Quick actions */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="bg-gradient-to-br from-white via-slate-50/50 to-white rounded-2xl shadow-[0_16px_48px_-20px_rgba(15,23,42,0.1)] border border-slate-200/80 p-6 sm:p-7 ring-1 ring-white/80">
+        <h2 className="text-lg font-bold text-gray-900 mb-5">Quick actions</h2>
+        <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
           <Link
             to="/admin/products"
-            className="flex items-center gap-3 p-4 rounded-lg border border-gray-100 hover:bg-gray-50 hover:border-blue-200 transition"
+            className="flex items-center gap-3 p-4 rounded-xl border border-slate-200/80 bg-white/80 hover:bg-blue-50/80 hover:border-blue-200 hover:shadow-md transition-all"
           >
             <Package className="w-5 h-5 text-blue-600" />
-            <span className="font-medium">Add Product</span>
+            <span className="font-semibold text-gray-800">Add Product</span>
           </Link>
           <Link
             to="/admin/services"
-            className="flex items-center gap-3 p-4 rounded-lg border border-gray-100 hover:bg-gray-50 hover:border-amber-200 transition"
+            className="flex items-center gap-3 p-4 rounded-xl border border-slate-200/80 bg-white/80 hover:bg-amber-50/80 hover:border-amber-200 hover:shadow-md transition-all"
           >
             <Wrench className="w-5 h-5 text-amber-600" />
-            <span className="font-medium">Manage Services</span>
+            <span className="font-semibold text-gray-800">Manage Services</span>
           </Link>
           <Link
             to="/admin/orders"
-            className="flex items-center gap-3 p-4 rounded-lg border border-gray-100 hover:bg-gray-50 hover:border-emerald-200 transition"
+            className="flex items-center gap-3 p-4 rounded-xl border border-slate-200/80 bg-white/80 hover:bg-emerald-50/80 hover:border-emerald-200 hover:shadow-md transition-all"
           >
             <ShoppingCart className="w-5 h-5 text-emerald-600" />
-            <span className="font-medium">View Orders</span>
+            <span className="font-semibold text-gray-800">View Orders</span>
           </Link>
           <Link
             to="/admin/inventory"
-            className="flex items-center gap-3 p-4 rounded-lg border border-gray-100 hover:bg-gray-50 hover:border-violet-200 transition"
+            className="flex items-center gap-3 p-4 rounded-xl border border-slate-200/80 bg-white/80 hover:bg-violet-50/80 hover:border-violet-200 hover:shadow-md transition-all"
           >
             <Package className="w-5 h-5 text-violet-600" />
-            <span className="font-medium">Manage Inventory</span>
+            <span className="font-semibold text-gray-800">Manage Inventory</span>
           </Link>
         </div>
       </div>
 
       {/* Orders + Service requests */}
       <div className="grid lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-[0_16px_48px_-20px_rgba(15,23,42,0.12)] border border-slate-200/80 overflow-hidden ring-1 ring-white/60">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-4">
             <div>
               <h2 className="text-lg font-semibold text-gray-900">Recent Orders</h2>
@@ -340,7 +371,7 @@ export default function AdminDashboard() {
           ) : null}
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-[0_16px_48px_-20px_rgba(15,23,42,0.12)] border border-slate-200/80 overflow-hidden ring-1 ring-white/60">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-4">
             <div>
               <h2 className="text-lg font-semibold text-gray-900">Service Requests</h2>

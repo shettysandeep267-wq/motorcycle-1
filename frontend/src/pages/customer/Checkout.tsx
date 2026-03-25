@@ -84,8 +84,8 @@ export default function Checkout() {
       clearCart()
       toast.success('Payment successful. Order placed!')
       navigate('/orders')
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Checkout failed. Please try again.')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Checkout failed. Please try again.')
     } finally {
       setSubmitting(false)
     }
@@ -142,7 +142,7 @@ export default function Checkout() {
           <div className="mt-6 rounded-2xl bg-black/40 border border-white/10 p-5 flex items-center gap-3">
             <ShieldCheck className="w-5 h-5 text-[#ff7a00]" />
             <p className="text-sm text-white/70">
-              Demo checkout UI. We securely store the order in your database after confirmation.
+              Demo checkout — your order is saved locally in this browser (no server).
             </p>
           </div>
 

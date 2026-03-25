@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import { getOrdersByUser, getOrders, cancelOrder, syncUser } from '../../utils/api'
 import { Package, CheckCircle, Clock, XCircle, Truck, ShoppingCart } from 'lucide-react'
-import LoadingSpinner from '../../components/LoadingSpinner'
 import PageSkeleton from '../../components/PageSkeleton'
 import toast from 'react-hot-toast'
 
@@ -83,8 +82,8 @@ export default function Orders() {
       await cancelOrder(orderId, { userId })
       toast.success('Order cancelled')
       await fetchOrders()
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to cancel order')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to cancel order')
     } finally {
       setCancellingId(null)
     }

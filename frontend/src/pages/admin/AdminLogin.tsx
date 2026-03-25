@@ -22,8 +22,8 @@ export default function AdminLogin() {
       localStorage.setItem('admin_token', token)
       toast.success('Admin login successful')
       navigate('/admin/dashboard')
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Invalid admin ID or password')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Invalid admin ID or password')
     }
   }
 
@@ -60,7 +60,8 @@ export default function AdminLogin() {
           </button>
         </form>
         <p className="mt-4 text-sm text-white/60 text-center">
-          Use your Admin ID and password to access the dashboard.
+          Demo (local-only): Admin ID <span className="text-white/80">admin</span>, password{' '}
+          <span className="text-white/80">admin123</span>
         </p>
       </div>
     </div>

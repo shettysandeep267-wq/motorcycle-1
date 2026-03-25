@@ -2,6 +2,9 @@ import { useNavigate } from 'react-router-dom'
 import { Trash2, Plus, Minus } from 'lucide-react'
 import { useCart } from '../../context/CartContext'
 
+const IMG_FALLBACK =
+  "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='120'%20height='120'%3E%3Crect%20fill='%23e5e7eb'%20width='120'%20height='120'/%3E%3Ctext%20x='50%25'%20y='50%25'%20dominant-baseline='middle'%20text-anchor='middle'%20fill='%239ca3af'%20font-size='11'%3ENo%20image%3C/text%3E%3C/svg%3E"
+
 export default function Cart() {
   const navigate = useNavigate()
   const { items: cartItems, removeFromCart, updateQuantity } = useCart()
@@ -37,6 +40,9 @@ export default function Cart() {
                       src={item.image}
                       alt={item.name}
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.src = IMG_FALLBACK
+                      }}
                     />
                   ) : (
                     <span className="text-xs text-gray-400">No image</span>

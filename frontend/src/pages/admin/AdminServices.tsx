@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
-  getServices,
   createService,
   updateService,
   deleteService,
@@ -9,6 +8,8 @@ import {
 } from '../../utils/api'
 import toast from 'react-hot-toast'
 import { Plus, Edit, Trash2, Wrench, Calendar } from 'lucide-react'
+import { SERVICE_CATEGORY_ORDER } from '../../data/services'
+import { useCatalogStore } from '../../stores/catalogStore'
 
 interface Service {
   _id: string
@@ -16,6 +17,8 @@ interface Service {
   description: string
   price: number
   duration: number
+  image?: string
+  category?: string
 }
 
 interface ServiceBooking {
@@ -27,36 +30,40 @@ interface ServiceBooking {
 }
 
 export default function AdminServices() {
-  const [services, setServices] = useState<Service[]>([])
+  const services = useCatalogStore((s) => s.services) as Service[]
   const [bookings, setBookings] = useState<ServiceBooking[]>([])
-  const [loading, setLoading] = useState(true)
+  const [bookingsLoading, setBookingsLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingService, setEditingService] = useState<Service | null>(null)
+
+  const normalizeCategory = (c?: string) => {
+    const valid = new Set(SERVICE_CATEGORY_ORDER as readonly string[])
+    return c && valid.has(c) ? c : 'Oil change'
+  }
+
   const [formData, setFormData] = useState({
     serviceName: '',
     description: '',
     price: '',
     duration: '',
+    category: normalizeCategory(undefined),
+    image: '',
   })
 
-  useEffect(() => {
-    fetchData()
-  }, [])
-
-  const fetchData = async () => {
+  const refreshBookings = useCallback(async () => {
     try {
-      const [servicesRes, bookingsRes] = await Promise.all([
-        getServices(),
-        getServiceBookings(),
-      ])
-      setServices(servicesRes.data || [])
+      const bookingsRes = await getServiceBookings()
       setBookings(bookingsRes.data || [])
     } catch (error) {
-      console.error('Error fetching data:', error)
+      console.error('Error fetching bookings:', error)
     } finally {
-      setLoading(false)
+      setBookingsLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    void refreshBookings()
+  }, [refreshBookings])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -66,13 +73,14 @@ export default function AdminServices() {
         description: formData.description,
         price: parseFloat(formData.price),
         duration: parseInt(formData.duration, 10),
+        category: normalizeCategory(formData.category),
+        image: formData.image || '',
       }
       if (editingService) {
         await updateService(editingService._id, serviceData)
       } else {
         await createService(serviceData)
       }
-      fetchData()
       resetForm()
       toast.success(editingService ? 'Service updated' : 'Service created')
     } catch (error) {
@@ -88,6 +96,8 @@ export default function AdminServices() {
       description: service.description,
       price: service.price.toString(),
       duration: service.duration.toString(),
+      category: normalizeCategory(service.category),
+      image: service.image || '',
     })
     setShowForm(true)
   }
@@ -96,7 +106,6 @@ export default function AdminServices() {
     if (!confirm('Are you sure you want to delete this service?')) return
     try {
       await deleteService(id)
-      fetchData()
       toast.success('Service deleted')
     } catch (error) {
       console.error('Error deleting service:', error)
@@ -107,7 +116,7 @@ export default function AdminServices() {
   const handleUpdateBookingStatus = async (id: string, status: string) => {
     try {
       await updateServiceStatus(id, { status })
-      fetchData()
+      await refreshBookings()
       toast.success('Booking status updated')
     } catch (error) {
       console.error('Error updating booking status:', error)
@@ -116,7 +125,14 @@ export default function AdminServices() {
   }
 
   const resetForm = () => {
-    setFormData({ serviceName: '', description: '', price: '', duration: '' })
+    setFormData({
+      serviceName: '',
+      description: '',
+      price: '',
+      duration: '',
+      category: normalizeCategory(undefined),
+      image: '',
+    })
     setEditingService(null)
     setShowForm(false)
   }
@@ -132,14 +148,6 @@ export default function AdminServices() {
       default:
         return 'bg-amber-50 text-amber-700'
     }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
-      </div>
-    )
   }
 
   return (
@@ -201,6 +209,30 @@ export default function AdminServices() {
                   onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                   required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <select
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-500"
+                >
+                  {SERVICE_CATEGORY_ORDER.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
+                <input
+                  type="url"
+                  value={formData.image}
+                  onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                  placeholder="https://..."
                 />
               </div>
               <div className="md:col-span-2">
@@ -294,6 +326,11 @@ export default function AdminServices() {
             <h2 className="text-lg font-semibold text-gray-900">Service Bookings</h2>
           </div>
           <div className="p-4 max-h-[420px] overflow-y-auto space-y-3">
+            {bookingsLoading && bookings.length === 0 ? (
+              <div className="py-10 flex justify-center">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-amber-600" />
+              </div>
+            ) : null}
             {bookings.map((booking) => (
               <div
                 key={booking._id}

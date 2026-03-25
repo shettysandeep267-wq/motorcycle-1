@@ -1,5 +1,5 @@
 import { Toaster } from 'react-hot-toast'
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import Home from './pages/customer/Home'
 import Products from './pages/customer/Products'
 import ProductDetail from './pages/customer/ProductDetail'
@@ -31,8 +31,8 @@ function App() {
         toastOptions={{
           duration: 4000,
           style: { borderRadius: '12px' },
-          success: { iconTheme: { primary: '#22c55e' } },
-          error: { iconTheme: { primary: '#ef4444' } },
+          success: { iconTheme: { primary: '#22c55e', secondary: '#ffffff' } },
+          error: { iconTheme: { primary: '#ef4444', secondary: '#ffffff' } },
         }}
       />
       <Router>
@@ -98,6 +98,7 @@ function App() {
 
         {/* Admin Routes - Protected with Admin Role Check */}
         <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="login" element={<AdminLogin />} />
           <Route
             path="dashboard"

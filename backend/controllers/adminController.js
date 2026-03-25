@@ -15,7 +15,7 @@ export const getDashboardStats = async (req, res) => {
     ])
 
     const ordersByStatus = await Order.aggregate([
-      { $group: { _id: '$orderStatus', count: { $sum: 1 } } },
+      { $group: { _id: '$status', count: { $sum: 1 } } },
     ])
 
     res.json({
@@ -33,12 +33,12 @@ export const getDashboardStats = async (req, res) => {
 
 export const getRecentOrders = async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit) || 10
+    const limit = parseInt(req.query.limit, 10) || 10
     const orders = await Order.find()
       .sort({ createdAt: -1 })
       .limit(limit)
-      .populate('userId')
-      .populate('products.productId')
+      .populate('user')
+      .populate('orderItems.product')
     res.json(orders)
   } catch (error) {
     res.status(500).json({ message: error.message })
@@ -47,12 +47,12 @@ export const getRecentOrders = async (req, res) => {
 
 export const getRecentBookings = async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit) || 10
+    const limit = parseInt(req.query.limit, 10) || 10
     const bookings = await ServiceBooking.find()
       .sort({ createdAt: -1 })
       .limit(limit)
-      .populate('userId')
-      .populate('serviceId')
+      .populate('user')
+      .populate('service')
     res.json(bookings)
   } catch (error) {
     res.status(500).json({ message: error.message })

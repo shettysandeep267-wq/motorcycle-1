@@ -49,8 +49,8 @@ export default function ServiceBookings() {
       }
       const res = await getServiceRequestsByUser(userId)
       setItems(Array.isArray(res.data) ? res.data : [])
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to load service bookings')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to load service bookings')
       setItems([])
     } finally {
       setLoading(false)
@@ -83,8 +83,8 @@ export default function ServiceBookings() {
       await cancelServiceRequest(id, { userId })
       toast.success('Booking cancelled')
       await fetchBookings()
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to cancel booking')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to cancel booking')
     } finally {
       setCancellingId(null)
     }
@@ -122,7 +122,8 @@ export default function ServiceBookings() {
               ? new Date(r.bookingDate).toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'short' })
               : '-'
             const s = (r.status || '').toLowerCase()
-            const canCancel = s === 'booked' || s === 'pending' || s === 'in-progress'
+            const canCancel =
+              s === 'booked' || s === 'pending' || s === 'in-progress'
             const isCancelled = s === 'cancelled'
             return (
               <div key={r._id} className="bg-white/5 border border-white/10 rounded-xl p-5">

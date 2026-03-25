@@ -1,8 +1,22 @@
 import Order from '../models/Order.js'
+import Product from '../models/Product.js'
+
+const populateOrder = (q) => q.populate('user').populate('orderItems.product')
+
+function normalizeOrderLines(rawItems) {
+  if (!Array.isArray(rawItems)) return []
+  return rawItems.map((p) => ({
+    productId: p.productId || p.product,
+    quantity: Number(p.quantity ?? p.qty ?? 1),
+    price: p.price != null ? Number(p.price) : undefined,
+    name: p.name,
+    image: p.image,
+  }))
+}
 
 export const getOrders = async (req, res) => {
   try {
-    const orders = await Order.find().populate('userId').populate('products.productId')
+    const orders = await populateOrder(Order.find())
     res.json(orders)
   } catch (error) {
     res.status(500).json({ message: error.message })
@@ -11,9 +25,7 @@ export const getOrders = async (req, res) => {
 
 export const getOrdersByUserId = async (req, res) => {
   try {
-    const orders = await Order.find({ userId: req.params.id })
-      .populate('userId')
-      .populate('products.productId')
+    const orders = await populateOrder(Order.find({ user: req.params.id }))
     res.json(orders)
   } catch (error) {
     res.status(500).json({ message: error.message })
@@ -22,7 +34,7 @@ export const getOrdersByUserId = async (req, res) => {
 
 export const getOrderById = async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id).populate('userId').populate('products.productId')
+    const order = await populateOrder(Order.findById(req.params.id))
     if (!order) {
       return res.status(404).json({ message: 'Order not found' })
     }
@@ -34,43 +46,52 @@ export const getOrderById = async (req, res) => {
 
 export const createOrder = async (req, res) => {
   try {
-    const {
-      userId,
-      customerName,
-      customerEmail,
-      products,
-      totalPrice,
-      paymentMethod,
-    } = req.body || {}
+    const body = req.body || {}
+    const userRef = body.user || body.userId
+    const rawLines = body.orderItems || body.products
+    const { totalPrice, isPaid, status } = body
 
-    if (!userId) return res.status(400).json({ message: 'userId is required' })
-    if (!Array.isArray(products) || products.length === 0) {
-      return res.status(400).json({ message: 'products are required' })
+    if (!userRef) return res.status(400).json({ message: 'user or userId is required' })
+    if (!Array.isArray(rawLines) || rawLines.length === 0) {
+      return res.status(400).json({ message: 'orderItems or products array is required' })
     }
 
-    const normalizedProducts = products.map((p) => ({
-      productId: p.productId,
-      quantity: Number(p.quantity || 1),
-      price: Number(p.price || 0),
-    }))
+    const normalized = normalizeOrderLines(rawLines)
+    const orderItems = []
 
-    const computedTotal = normalizedProducts.reduce(
-      (sum, p) => sum + p.price * p.quantity,
-      0
-    )
+    for (const line of normalized) {
+      if (!line.productId) {
+        return res.status(400).json({ message: 'Each line must include product or productId' })
+      }
+      const prod = await Product.findById(line.productId).select('name price images stock').lean()
+      const qty = line.quantity
+      const price = line.price != null && !Number.isNaN(line.price) ? line.price : prod?.price ?? 0
+      const name = line.name || prod?.name || 'Product'
+      const image =
+        line.image || (Array.isArray(prod?.images) && prod.images[0] ? prod.images[0] : '')
+      orderItems.push({
+        product: line.productId,
+        name,
+        qty,
+        price,
+        image,
+      })
+    }
+
+    const computedTotal = orderItems.reduce((sum, item) => sum + item.price * item.qty, 0)
 
     const order = new Order({
-      userId,
-      customerName: customerName || '',
-      customerEmail: customerEmail || '',
-      products: normalizedProducts,
-      totalPrice: typeof totalPrice === 'number' ? totalPrice : computedTotal,
-      paymentMethod,
+      user: userRef,
+      orderItems,
+      totalPrice: typeof totalPrice === 'number' && !Number.isNaN(totalPrice) ? totalPrice : computedTotal,
+      isPaid: Boolean(isPaid),
+      status: status || 'pending',
     })
     const savedOrder = await order.save()
-    await savedOrder.populate('userId')
-    await savedOrder.populate('products.productId')
-    res.status(201).json(savedOrder)
+    const full = await Order.findById(savedOrder._id)
+      .populate('user')
+      .populate('orderItems.product')
+    res.status(201).json(full)
   } catch (error) {
     res.status(400).json({ message: error.message })
   }
@@ -78,11 +99,17 @@ export const createOrder = async (req, res) => {
 
 export const updateOrder = async (req, res) => {
   try {
-    const order = await Order.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    ).populate('userId').populate('products.productId')
+    const patch = { ...req.body }
+    if (patch.userId && !patch.user) patch.user = patch.userId
+    delete patch.userId
+    if (patch.products && !patch.orderItems) patch.orderItems = patch.products
+    delete patch.products
+    if (patch.orderStatus && !patch.status) patch.status = patch.orderStatus
+    delete patch.orderStatus
+
+    const order = await populateOrder(
+      Order.findByIdAndUpdate(req.params.id, patch, { new: true, runValidators: true })
+    )
     if (!order) {
       return res.status(404).json({ message: 'Order not found' })
     }
@@ -104,7 +131,6 @@ export const deleteOrder = async (req, res) => {
   }
 }
 
-// Customer: cancel own order (basic ownership check by userId)
 export const cancelOrder = async (req, res) => {
   try {
     const { userId } = req.body || {}
@@ -113,19 +139,18 @@ export const cancelOrder = async (req, res) => {
     const order = await Order.findById(req.params.id)
     if (!order) return res.status(404).json({ message: 'Order not found' })
 
-    if (String(order.userId) !== String(userId)) {
+    if (String(order.user) !== String(userId)) {
       return res.status(403).json({ message: 'You can only cancel your own order' })
     }
 
-    if (order.orderStatus === 'cancelled' || order.orderStatus === 'completed' || order.orderStatus === 'shipped') {
-      return res.status(400).json({ message: `Order cannot be cancelled when status is ${order.orderStatus}` })
+    if (['shipped', 'delivered', 'cancelled'].includes(order.status)) {
+      return res.status(400).json({ message: `Order cannot be cancelled when status is ${order.status}` })
     }
 
-    order.orderStatus = 'cancelled'
+    order.status = 'cancelled'
     const saved = await order.save()
-    await saved.populate('userId')
-    await saved.populate('products.productId')
-    res.json(saved)
+    const full = await Order.findById(saved._id).populate('user').populate('orderItems.product')
+    res.json(full)
   } catch (error) {
     res.status(400).json({ message: error.message })
   }
